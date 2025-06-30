@@ -1,21 +1,16 @@
-import { Controller, Post, Body, Req, Get, Query, Res } from '@nestjs/common';
-import { HubSpotService } from './hubspot.service';
-import { HubSpotConnectDto } from './dto/connect.dto';
-import { User } from 'src/auth/user.decorator';
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import { HubSpotAuthService } from './services/hubspot-auth.service';
 import { Response } from 'express';
+import { Public } from 'src/common/decorators/public.decorator';
+import { HubSpotTokenService } from './services/hubspot-token.service';
 
 @Controller('hubspot')
 export class HubSpotController {
-  constructor(private readonly hubspotService: HubSpotService) {}
+  constructor(private readonly hubspotAuth: HubSpotAuthService,
+    private readonly hubSpotToken: HubSpotTokenService
+  ) {}
 
-  @Post('connect')
-  async connect(
-    @Body() dto: HubSpotConnectDto,
-    @User('userId') userId: string,
-  ) {
-    return this.hubspotService.connectWithHubspot(dto.code, userId);
-  }
-
+  @Public()
   @Get('callback')
   async handleHubSpotCallback(
     @Query('code') code: string,
@@ -24,10 +19,10 @@ export class HubSpotController {
     @Query('error') error: string,
     @Res() res: Response,
   ) {
-    if (!error) {
+    if (error) {
       console.error('Error de autorización de HubSpot:', error);
       return res.redirect(
-        `http://localhost:5173/error-huspot?message=${encodeURIComponent(error)}`,
+        `http://localhost:5173/error-hubspot?message=${encodeURIComponent(error)}`,
       );
     }
     if (!code || !state) {
@@ -37,7 +32,25 @@ export class HubSpotController {
         `http://localhost:5173/error-huspot?message=${encodeURIComponent(msg)}`,
       );
     }
-    // Aquí iría la lógica normal del callback
-    await this.hubspotService.validateStateAndGetUserId(state);
+
+    const userId = await this.hubspotAuth.validateStateAndGetUserId(state);
+    const tokens = await this.hubspotAuth.exchangeCodeForTokens(code);
+
+    try {
+      const saved = await this.hubSpotToken.saveHubSpotTokens(userId, tokens);
+  
+      if (!saved) {
+        throw new Error('No se pudo guardar el token.');
+      }
+  
+      return res.redirect(`http://localhost:5173/success-hubspot`);
+    } catch (err) {
+      console.error('[HubSpot Callback Error]', err.message);
+      return res.redirect(
+        `http://localhost:5173/error-hubspot?message=${encodeURIComponent(
+          'HubSpot connection failed',
+        )}`,
+      );
+    }
   }
 }

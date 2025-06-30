@@ -16,7 +16,6 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  // app.useGlobalGuards(new JwtAuthGuard());
   app.enableCors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
