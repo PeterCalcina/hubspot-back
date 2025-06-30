@@ -3,11 +3,15 @@ import { HubSpotAuthService } from './services/hubspot-auth.service';
 import { Response } from 'express';
 import { Public } from 'src/common/decorators/public.decorator';
 import { HubSpotTokenService } from './services/hubspot-token.service';
+import { User } from 'src/auth/user.decorator';
+import { HubSpotService } from './services/hubspot.service';
+import { successResponse } from 'src/common/responses/success-response';
 
 @Controller('hubspot')
 export class HubSpotController {
   constructor(private readonly hubspotAuth: HubSpotAuthService,
-    private readonly hubSpotToken: HubSpotTokenService
+    private readonly hubSpotToken: HubSpotTokenService,
+    private readonly hubSpot: HubSpotService
   ) {}
 
   @Public()
@@ -46,5 +50,11 @@ export class HubSpotController {
         )}`,
       );
     }
+  }
+
+  @Get('contacts')
+  async getContacts(@User('id') userId: string) {
+    const contacts = await this.hubSpot.getContacts(userId);
+    return successResponse(contacts, 'Contactos cargados correctamente');
   }
 }
