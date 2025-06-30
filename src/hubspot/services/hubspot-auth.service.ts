@@ -27,13 +27,6 @@ export class HubSpotAuthService {
   async exchangeCodeForTokens(code: string): Promise<TokenDto> {
     const config = getEnvironmentConfig().hubspot;
 
-    console.log('[HubSpot Auth] Exchanging code for tokens:', {
-      code,
-      clientId: config.clientId,
-      redirectUrl: config.redirectUrl,
-      clientSecret: config.clientSecret,
-    });
-
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: config.clientId,
@@ -42,24 +35,37 @@ export class HubSpotAuthService {
       code,
     });
 
-    const response = await firstValueFrom(
-      this.httpService.post('https://api.hubapi.com/oauth/v1/token', params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      }),
-    );
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post('https://api.hubapi.com/oauth/v1/token', params, {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        }),
+      );
 
-    const { access_token, refresh_token, expires_in, token_type, scope } =
-      response.data;
+      if (response.status !== 200) {
+        throw new BadRequestException(
+          `Error al intercambiar el código por tokens: ${response.statusText}`,
+        );
+      }
 
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + expires_in * 1000);
+      const { access_token, refresh_token, expires_in, token_type, scope } =
+        response.data;
 
-    return {
-      accessToken: access_token,
-      refreshToken: refresh_token,
-      expiresIn: expires_in,
-      expiresAt,
-      tokenType: token_type,
-    };
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + expires_in * 1000);
+
+      return {
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        expiresIn: expires_in,
+        expiresAt,
+        tokenType: token_type,
+      } as TokenDto;
+    } catch (error) {
+      console.error('[HubSpot Auth Error]', error);
+      throw new BadRequestException(
+        `Error al intercambiar el código por tokens: ${error.message}`,
+      );
+    }
   }
 }

@@ -15,7 +15,6 @@ export class HubSpotController {
   async handleHubSpotCallback(
     @Query('code') code: string,
     @Query('state') state: string,
-    @Query('scope') scope: string,
     @Query('error') error: string,
     @Res() res: Response,
   ) {
@@ -32,16 +31,11 @@ export class HubSpotController {
         `http://localhost:5173/error-huspot?message=${encodeURIComponent(msg)}`,
       );
     }
-
-    const userId = await this.hubspotAuth.validateStateAndGetUserId(state);
-    const tokens = await this.hubspotAuth.exchangeCodeForTokens(code);
-
+    
     try {
-      const saved = await this.hubSpotToken.saveHubSpotTokens(userId, tokens);
-  
-      if (!saved) {
-        throw new Error('No se pudo guardar el token.');
-      }
+      const userId = await this.hubspotAuth.validateStateAndGetUserId(state);
+      const tokens = await this.hubspotAuth.exchangeCodeForTokens(code);
+      await this.hubSpotToken.saveHubSpotTokens(userId, tokens);
   
       return res.redirect(`http://localhost:5173/success-hubspot`);
     } catch (err) {
